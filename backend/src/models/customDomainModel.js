@@ -10,6 +10,12 @@ const customDomainSchema = new mongoose.Schema(
     // New fields for Teacher Assignment feature
     isAssignment: { type: Boolean, default: false },
     questionLimit: { type: Number, default: 15 },
+    questions: [{
+    questionText: String,
+    options: [String],
+    correctIndex: Number,
+    explanation: String
+  }],
     icon: { type: String, default: 'Sparkles' },
     color: { type: String, default: 'hsl(48, 96%, 53%)' },
     difficulty: { type: Number, default: 3, enum: [1, 2, 3, 4, 5] },

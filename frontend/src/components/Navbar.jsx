@@ -82,6 +82,7 @@ const Navbar = () => {
   const { userStats } = useGame(); 
 
   const isStudent = location.pathname.startsWith('/student');
+  const isTeacher = location.pathname.startsWith('/teacher');
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -133,7 +134,7 @@ const Navbar = () => {
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b ${
-        scrolled || isStudent 
+        scrolled || isStudent || isTeacher
           ? "bg-white/90 backdrop-blur-md border-slate-200 shadow-sm" 
           : "bg-transparent border-transparent"
       }`}
@@ -141,7 +142,7 @@ const Navbar = () => {
       <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
         
         {/* LOGO */}
-        <Link to={isStudent ? "/student/home" : "/"} className="flex items-center gap-3 group">
+        <Link to={isStudent ? "/student/home" : isTeacher ? "/teacher/dashboard" : "/"} className="flex items-center gap-3 group">
           <img 
             src="/SARATHI-Picsart-BackgroundRemover.jpg" 
             alt="SARATHI" 
@@ -155,7 +156,52 @@ const Navbar = () => {
         {/* RIGHT SECTION */}
         <div className="hidden md:flex items-center gap-6">
           
-          {isStudent ? (
+          {isTeacher ? (
+            /* Teacher View - Only Profile */
+            <div className="relative">
+              <button 
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full hover:bg-slate-50 transition-all border border-transparent hover:border-slate-200"
+              >
+                <img 
+                  src={userData?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Teacher"} 
+                  alt="Teacher" 
+                  className="w-8 h-8 rounded-full bg-slate-200 object-cover border border-slate-200"
+                />
+                <ChevronDown size={14} className="text-slate-500" />
+              </button>
+
+              <AnimatePresence>
+                {isProfileOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsProfileOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-20"
+                    >
+                      <div className="p-4 border-b border-slate-50">
+                        <p className="text-sm font-bold text-slate-900">{userData?.name || "Teacher"}</p>
+                        <p className="text-xs text-slate-500 truncate">{userData?.email || "teacher@example.com"}</p>
+                      </div>
+                      <div className="p-1">
+                        <Link to="/teacher/dashboard" className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg">
+                          <LayoutDashboard size={16} /> Dashboard
+                        </Link>
+                        <button 
+                          onClick={handleLogout}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg"
+                        >
+                          <LogOut size={16} /> Log Out
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+          ) : isStudent ? (
             <>
               {/* Navigation Links */}
               <div className="flex items-center gap-6 mr-4 border-r border-slate-200 pr-6">

@@ -1,7 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import mcq, curriculum, quiz, statistics, next_level
+from app.routes import mcq, curriculum, quiz, statistics, next_level, topics
 
 # Initialize FastAPI app
 app = FastAPI(title="Adaptive Quiz Engine", version="1.0.0")
@@ -25,6 +25,7 @@ app.include_router(curriculum.router)
 app.include_router(quiz.router)
 app.include_router(statistics.router)
 app.include_router(next_level.router)
+app.include_router(topics.router)
 
 # ==========================================
 # HEALTH CHECK

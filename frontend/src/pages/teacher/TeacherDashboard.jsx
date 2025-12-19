@@ -1,338 +1,520 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Plus, Copy, FileSpreadsheet, Users, Sparkles, Send, 
-  BarChart3, LayoutDashboard, BookOpen, Search, Trash2, 
-  TrendingUp, UserCheck 
+import { useNavigate } from "react-router-dom";
+import {
+  Copy,
+  FileSpreadsheet,
+  Sparkles,
+  Download,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  CheckCircle,
+  Zap,
+  Calendar,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, AreaChart, Area 
-} from 'recharts';
+import * as XLSX from "xlsx";
 import Navbar from "../../components/Navbar";
 
-// Dummy Data for Student Performance
-const PERFORMANCE_DATA = [
-  { name: 'Week 1', score: 65, average: 60 },
-  { name: 'Week 2', score: 72, average: 64 },
-  { name: 'Week 3', score: 68, average: 66 },
-  { name: 'Week 4', score: 85, average: 70 },
-  { name: 'Week 5', score: 78, average: 72 },
-  { name: 'Week 6', score: 90, average: 75 },
+// Static Topics Data
+const TOPICS_DATA = [
+  "Roux",
+  "Sous Vide",
+  "Blanching",
+  "Emulsification",
+  "Fermentation",
+  "Caramelization",
 ];
 
-const STUDENT_LIST = [
-  { id: 1, name: "Alex Johnson", email: "alex@example.com", lastScore: 92, progress: "+12%" },
-  { id: 2, name: "Sarah Smith", email: "sarah@example.com", lastScore: 88, progress: "+5%" },
-  { id: 3, name: "Michael Brown", email: "mike@example.com", lastScore: 76, progress: "-2%" },
-  { id: 4, name: "Emily Davis", email: "emily@example.com", lastScore: 95, progress: "+8%" },
+// Static Assignment Data
+const ASSIGNMENTS_DATA = [
+  {
+    id: 1,
+    name: "Introduction to Cooking",
+    url: "https://assessment.com/take/assign1",
+    createdAt: "2025-12-19",
+  },
+  {
+    id: 2,
+    name: "Basic Techniques",
+    url: "https://assessment.com/take/assign2",
+    createdAt: "2025-12-18",
+  },
+  {
+    id: 3,
+    name: "Sauce Making",
+    url: "https://assessment.com/take/assign3",
+    createdAt: "2025-12-17",
+  },
+  {
+    id: 4,
+    name: "Advanced Cooking",
+    url: "https://assessment.com/take/assign4",
+    createdAt: "2025-12-16",
+  },
 ];
+
+// Static Student Stats Data
+const STUDENT_STATS_DATA = {
+  class_name: "Unknown Class",
+  program_name: "introduction-to-cooking",
+  timestamp: "2025-12-19T15:20:23.694918",
+  aggregated_data: {
+    total_students: 6,
+    overall_raw_accuracy: "63.0%",
+    overall_normalized_accuracy: "45.8%",
+    total_questions_answered: 27,
+    strong_topics: [],
+    weak_topics: [
+      {
+        topic: "Roux",
+        raw_accuracy: "20.0%",
+        weighted_accuracy: "22.6%",
+        reliability: "High",
+      },
+      {
+        topic: "Sous Vide",
+        raw_accuracy: "66.7%",
+        weighted_accuracy: "42.4%",
+        reliability: "Medium",
+      },
+      {
+        topic: "Blanching",
+        raw_accuracy: "66.7%",
+        weighted_accuracy: "51.0%",
+        reliability: "High",
+      },
+    ],
+  },
+};
 
 const TeacherDashboard = () => {
-  const [subjects, setSubjects] = useState([]);
-  const [showPopup, setShowPopup] = useState(false);
+  const navigate = useNavigate();
+  const [teacherName, setTeacherName] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTopicsModal, setShowTopicsModal] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [prompt, setPrompt] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState(STUDENT_LIST[0]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState("");
+  const [assignments, setAssignments] = useState(ASSIGNMENTS_DATA);
 
+  /* ---------------- Initial Load & Get Teacher Name ---------------- */
   useEffect(() => {
-    fetchSubjects();
+    const userData = JSON.parse(localStorage.getItem("userData"));
+    setTeacherName(userData?.name || userData?.fullName || "Teacher");
   }, []);
 
-  const fetchSubjects = async () => {
-    try {
-      const userData = JSON.parse(localStorage.getItem('userData'));
-      const userId = userData?.id || userData?._id;
-      const res = await fetch(`http://localhost:9000/api/custom-domains/user/${userId}`);
-      const result = await res.json();
-      if (result.status === 'success') {
-        setSubjects(result.data.filter(d => d.isAssignment));
-      }
-    } catch (e) { console.error(e); }
-  };
-
-  const handleCreate = async () => {
-    if (!prompt.trim()) return;
-    setLoading(true);
-    try {
-      const userData = JSON.parse(localStorage.getItem('userData'));
-      const userId = userData?.id || userData?._id;
-      
-      const res = await fetch('http://localhost:9000/api/custom-domains', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          name: prompt,
-          userPrompt: prompt,
-          isAssignment: true,
-          questionLimit: 15
-        }),
-      });
-      
-      if (res.ok) {
-        setShowPopup(false);
+  /* ---------------- Handle Create Assignment Start ---------------- */
+  const handleCreateStart = () => {
+    if (prompt.trim()) {
+      setIsLoading(true);
+      setTimeout(() => {
+        setIsLoading(false);
+        setShowCreateModal(false);
+        setShowTopicsModal(true);
         setPrompt("");
-        fetchSubjects();
-      }
-    } finally { setLoading(false); }
+      }, 2000);
+    }
   };
 
-  const copyInviteLink = (id) => {
-    const link = `${window.location.origin}/assessment/take/${id}`;
-    navigator.clipboard.writeText(link);
-    alert("Invite Link Copied! Send this to your students.");
+  /* ---------------- Handle Generate Link ---------------- */
+  const handleGenerateLink = () => {
+    const newLink = `${window.location.origin}/assessment/take/${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+    setGeneratedLink(newLink);
+    setShowTopicsModal(false);
+    setShowLinkModal(true);
+  };
+
+  /* ---------------- Copy Link to Clipboard ---------------- */
+  const copyLink = () => {
+    navigator.clipboard.writeText(generatedLink);
+    alert("Link copied to clipboard!");
+  };
+
+  /* ---------------- Handle Export Assignment ---------------- */
+  const handleExport = (assignment) => {
+    const ws = XLSX.utils.json_to_sheet([
+      {
+        Assignment: assignment.name,
+        URL: assignment.url,
+        CreatedAt: assignment.createdAt,
+        Students: 6,
+        Status: "Active",
+      },
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Assignment");
+    XLSX.writeFile(wb, `${assignment.name}.xlsx`);
+  };
+
+  /* ---------------- Handle View Analysis ---------------- */
+  const handleViewAnalysis = (assignment) => {
+    navigate(`/teacher/assignment-analysis/${assignment.id}`);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <Navbar />
-      
-      <main className="flex-1 container mx-auto px-6 py-8">
-        {/* Header Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: "Active Subjects", value: subjects.length, icon: BookOpen, color: "text-blue-600" },
-            { label: "Total Students", value: "48", icon: Users, color: "text-brand-600" },
-            { label: "Avg. Performance", value: "78%", icon: TrendingUp, color: "text-green-600" },
-            { label: "Tests Completed", value: "124", icon: UserCheck, color: "text-purple-600" },
-          ].map((stat, i) => (
-            <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-              <div className={`p-3 rounded-xl bg-slate-50 ${stat.color}`}>
-                <stat.icon size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-slate-500 font-medium">{stat.label}</p>
-                <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-              </div>
-            </div>
-          ))}
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Side: Performance Visualization */}
-          <div className="lg:col-span-2 space-y-8">
-            <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">Performance Analytics</h2>
-                  <p className="text-sm text-slate-500">Tracking trend for {selectedStudent.name}</p>
-                </div>
-                <div className="flex bg-slate-100 p-1 rounded-lg">
-                  <button className="px-3 py-1 text-xs font-bold bg-white shadow-sm rounded-md">Score Trend</button>
-                  <button className="px-3 py-1 text-xs font-bold text-slate-500">Participation</button>
-                </div>
-              </div>
-
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={PERFORMANCE_DATA}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{fill: '#64748b', fontSize: 12}} 
-                      dy={10}
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{fill: '#64748b', fontSize: 12}}
-                    />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="score" 
-                      stroke="#4f46e5" 
-                      strokeWidth={4} 
-                      dot={{ r: 6, fill: '#4f46e5', strokeWidth: 2, stroke: '#fff' }}
-                      activeDot={{ r: 8, strokeWidth: 0 }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="average" 
-                      stroke="#94a3b8" 
-                      strokeWidth={2} 
-                      strokeDasharray="5 5" 
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-
-            {/* Student List Table */}
-            <section className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-6 border-b border-slate-50 flex justify-between items-center">
-                <h2 className="text-xl font-bold text-slate-900">Student List</h2>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
-                    type="text" 
-                    placeholder="Search students..." 
-                    className="pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm w-64 focus:ring-2 focus:ring-brand-500"
-                  />
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50/50 text-slate-500 text-sm">
-                    <tr>
-                      <th className="px-6 py-4 font-semibold">Student Name</th>
-                      <th className="px-6 py-4 font-semibold">Last Score</th>
-                      <th className="px-6 py-4 font-semibold">Progress</th>
-                      <th className="px-6 py-4 font-semibold">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {STUDENT_LIST.map((student) => (
-                      <tr 
-                        key={student.id} 
-                        className={`hover:bg-slate-50 cursor-pointer transition-colors ${selectedStudent.id === student.id ? 'bg-brand-50/50' : ''}`}
-                        onClick={() => setSelectedStudent(student)}
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold">
-                              {student.name.charAt(0)}
-                            </div>
-                            <div>
-                              <p className="font-bold text-slate-900">{student.name}</p>
-                              <p className="text-xs text-slate-500">{student.email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-slate-700">{student.lastScore}%</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`text-sm font-bold ${student.progress.startsWith('+') ? 'text-green-600' : 'text-red-500'}`}>
-                            {student.progress}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-brand-600 transition-all">
-                            <Send size={18} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+      {/* ============= WELCOME SECTION ============= */}
+      <div className="border-b bg-white shadow-sm">
+        <div className="container mx-auto px-8 py-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">
+              Welcome, <span className="text-indigo-600">{teacherName}</span>
+            </h1>
+            <p className="text-slate-500 mt-1">Manage your assignments and track student progress</p>
           </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-6 py-3 rounded-xl font-bold transition-all duration-200 hover:shadow-lg"
+          >
+            <Sparkles size={20} /> Create Assignment
+          </button>
+        </div>
+      </div>
 
-          {/* Right Side: Subjects & Creation */}
-          <div className="space-y-6">
-            <div className="bg-gradient-to-br from-brand-600 to-brand-700 rounded-3xl p-6 text-white shadow-xl">
-              <Sparkles className="mb-4" size={32} />
-              <h3 className="text-xl font-bold mb-2">Create New Subject</h3>
-              <p className="text-brand-100 text-sm mb-6 leading-relaxed">
-                Generate a custom 15-question assessment by describing the topic for your students.
-              </p>
-              <button 
-                onClick={() => setShowPopup(true)}
-                className="w-full bg-white text-brand-700 font-bold py-3 rounded-xl shadow-lg hover:bg-brand-50 transition-all"
+      <main className="container mx-auto px-8 py-8">
+        {/* ============= ASSIGNMENTS SECTION ============= */}
+        <section className="mb-8">
+          <h2 className="text-2xl font-bold text-slate-900 mb-6">All Assignments</h2>
+
+          <div className="space-y-4">
+            {assignments.map((assignment, idx) => (
+              <div
+                key={idx}
+                className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-xl hover:border-brand-300 transition-all duration-300 group"
               >
-                Launch Builder
-              </button>
-            </div>
-
-            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 px-2">
-              <BookOpen size={20} className="text-brand-600" /> My Subjects
-            </h3>
-
-            <div className="space-y-4">
-              {subjects.map(sub => (
-                <div key={sub._id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:border-brand-300 transition-all group">
-                  <div className="flex justify-between items-start mb-4">
-                    <h4 className="font-bold text-slate-800 line-clamp-1">{sub.name}</h4>
-                    <button className="text-slate-300 hover:text-red-500 transition-colors">
-                      <Trash2 size={16} />
-                    </button>
+                <div className="flex items-center justify-between gap-6">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white font-bold text-lg shadow-lg group-hover:scale-110 transition-transform">
+                        {assignment.name.charAt(0)}
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-900">
+                          {assignment.name}
+                        </h3>
+                        <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+                          <Calendar size={14} />
+                          <span>Created: {assignment.createdAt}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <button 
-                      onClick={() => copyInviteLink(sub._id)}
-                      className="w-full bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2 border border-slate-100"
+
+                  <div className="flex-1 max-w-md">
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
+                      <p className="text-xs text-slate-500 mb-1 font-semibold">Assignment URL</p>
+                      <p className="text-sm text-slate-700 break-all font-mono">
+                        {assignment.url}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleExport(assignment)}
+                      className="flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg"
                     >
-                      <Copy size={14} /> Invite Students
+                      <Download size={18} /> Export
                     </button>
-                    <button 
-                      onClick={() => window.open(`http://localhost:9000/api/quiz-sessions/export/${sub._id}`)}
-                      className="w-full bg-green-50 hover:bg-green-100 text-green-700 font-bold py-2 rounded-lg text-xs flex items-center justify-center gap-2"
+                    <button
+                      onClick={() => handleViewAnalysis(assignment)}
+                      className="flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-6 py-3 rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg"
                     >
-                      <FileSpreadsheet size={14} /> Export Results
+                      <Eye size={18} /> View Analysis
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        </div>
+        </section>
       </main>
 
-      {/* Subject Creator Popup */}
-      <AnimatePresence>
-        {showPopup && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-[2rem] p-8 max-w-lg w-full shadow-2xl overflow-hidden relative"
-            >
-              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-400 via-brand-600 to-brand-400" />
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-brand-50 flex items-center justify-center text-brand-600">
-                  <Sparkles size={24} />
+      {/* ============= MODAL: CREATE ASSIGNMENT ============= */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl animate-slideUp relative overflow-hidden">
+            {/* Decorative Background */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full blur-3xl opacity-30 -translate-y-32 translate-x-32" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-blue-100 to-cyan-100 rounded-full blur-3xl opacity-30 translate-y-32 -translate-x-32" />
+
+            <div className="relative z-10">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-brand-600 flex items-center justify-center shadow-lg">
+                    <Sparkles size={28} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-bold text-slate-900">
+                      Create Assignment
+                    </h2>
+                    <p className="text-slate-500 mt-1">
+                      Powered by AI ✨
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Subject Builder</h2>
-                  <p className="text-sm text-slate-500">AI-Powered Question Generation</p>
+                <button
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setPrompt("");
+                  }}
+                  className="text-slate-400 hover:text-slate-600 transition-colors p-2 hover:bg-slate-100 rounded-xl"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Description */}
+              <div className="bg-gradient-to-br from-sky-50 to-blue-50 rounded-2xl p-6 mb-6 border border-sky-200">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center flex-shrink-0 mt-1">
+                    <Zap size={18} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 mb-2">
+                      AI-Powered Topic Generation
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Describe your course topic and our AI will generate relevant subtopics 
+                      and create a comprehensive assignment tailored to your curriculum.
+                    </p>
+                  </div>
                 </div>
               </div>
-              
-              <p className="text-slate-600 mb-6 text-sm">
-                Enter a detailed prompt about the subject. Our AI will generate 15 specialized questions for this assignment.
-              </p>
 
-              <textarea 
-                className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl mb-6 h-40 focus:ring-2 focus:ring-brand-500 outline-none resize-none transition-all placeholder:text-slate-400"
-                placeholder="e.g., Fundamentals of React including Hooks, State Management, and Lifecycle methods for beginners..."
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-              />
+              {/* Input Area */}
+              <div className="mb-6">
+                <label className="block text-sm font-bold text-slate-900 mb-3">
+                  Assignment Topic
+                </label>
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="E.g., Advanced cooking techniques, sauce making, food safety, molecular gastronomy..."
+                  className="w-full border-2 border-slate-200 rounded-2xl p-5 focus:outline-none focus:ring-4 focus:ring-sky-200 focus:border-brand-600 resize-none transition-all text-slate-900 placeholder-slate-400 text-lg"
+                  rows={6}
+                />
+                <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                  <Sparkles size={12} />
+                  Be as specific as possible for better results
+                </p>
+              </div>
 
+              {/* Action Buttons */}
               <div className="flex gap-4">
-                <button 
-                  onClick={() => setShowPopup(false)}
-                  className="flex-1 py-4 text-slate-500 font-bold hover:bg-slate-50 rounded-2xl transition-all"
+                <button
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setPrompt("");
+                  }}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-900 py-4 rounded-xl font-bold transition-all hover:shadow-md"
                 >
                   Cancel
                 </button>
-                <button 
-                  onClick={handleCreate} 
-                  disabled={loading || !prompt.trim()}
-                  className="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-brand-500/20 disabled:opacity-50 transition-all"
+                <button
+                  onClick={handleCreateStart}
+                  disabled={!prompt.trim()}
+                  className="flex-1 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-300 text-white py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-xl disabled:shadow-none flex items-center justify-center gap-2"
                 >
-                  {loading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent animate-spin rounded-full" />
-                  ) : (
-                    <><Send size={18} /> Generate</>
-                  )}
+                  <Zap size={20} />
+                  Generate Topics
                 </button>
               </div>
-            </motion.div>
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
+
+      {/* ============= MODAL: LOADING STATE ============= */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
+          <div className="bg-white rounded-3xl p-10 text-center animate-slideUp shadow-2xl max-w-md w-full mx-4">
+            <div className="relative mb-6">
+              <div className="w-20 h-20 border-4 border-sky-100 border-t-brand-600 rounded-full animate-spin mx-auto"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Sparkles size={32} className="text-brand-600 animate-pulse" />
+              </div>
+            </div>
+            <h3 className="text-2xl font-bold text-slate-900 mb-2">
+              AI is Working...
+            </h3>
+            <p className="text-slate-600 mb-4">Generating relevant topics for your assignment</p>
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-2 h-2 bg-brand-600 rounded-full animate-bounce" style={{ animationDelay: "0s" }}></div>
+              <div className="w-2 h-2 bg-brand-600 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+              <div className="w-2 h-2 bg-brand-600 rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============= MODAL: TOPICS ============= */}
+      {showTopicsModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl p-8 max-w-3xl w-full shadow-2xl animate-slideUp max-h-[90vh] overflow-y-auto relative">
+            {/* Decorative Background */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full blur-3xl opacity-30 -translate-y-32 translate-x-32" />
+
+            <div className="relative z-10">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-green-600 flex items-center justify-center shadow-lg">
+                    <CheckCircle size={24} className="text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-bold text-slate-900">Generated Topics</h2>
+                    <p className="text-slate-500 mt-1">AI has created {TOPICS_DATA.length} relevant topics</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowTopicsModal(false)}
+                  className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-xl transition-all"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Topics Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                {TOPICS_DATA.map((topic, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-gradient-to-br from-sky-50 to-blue-50 border-2 border-sky-200 rounded-2xl p-5 text-center hover:shadow-lg transition-all hover:scale-105 hover:border-sky-400 group cursor-pointer"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform shadow-md">
+                      <span className="text-white font-bold">{idx + 1}</span>
+                    </div>
+                    <p className="font-bold text-slate-900 text-lg">{topic}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    setShowTopicsModal(false);
+                    setShowCreateModal(true);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-900 py-4 rounded-xl font-bold transition-all hover:shadow-md"
+                >
+                  <ChevronLeft size={20} /> Regenerate
+                </button>
+                <button
+                  onClick={handleGenerateLink}
+                  className="flex-1 bg-brand-600 hover:bg-brand-700 text-white py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                >
+                  <CheckCircle size={20} />
+                  Create Assignment
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============= MODAL: GENERATED LINK ============= */}
+      {showLinkModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-slideUp relative overflow-hidden">
+            {/* Decorative Background */}
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full blur-3xl opacity-40 -translate-y-24 translate-x-24" />
+
+            <div className="relative z-10">
+              {/* Success Icon */}
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-600 to-emerald-600 flex items-center justify-center mx-auto mb-6 shadow-2xl">
+                <CheckCircle size={40} className="text-white" />
+              </div>
+
+              {/* Header */}
+              <h2 className="text-3xl font-bold text-slate-900 mb-2 text-center">
+                Assignment Created!
+              </h2>
+              <p className="text-slate-600 mb-6 text-center">
+                Share this link with your students to get started
+              </p>
+
+              {/* Link Display */}
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-200 rounded-2xl p-5 mb-6">
+                <p className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wide">
+                  Assignment Link
+                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-mono text-slate-700 flex-1 truncate">
+                    {generatedLink}
+                  </p>
+                  <button
+                    onClick={copyLink}
+                    className="bg-brand-600 hover:bg-brand-700 text-white p-3 rounded-xl transition-all shadow-md hover:shadow-lg flex-shrink-0"
+                  >
+                    <Copy size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Info Box */}
+              <div className="bg-sky-50 border border-sky-200 rounded-2xl p-4 mb-6">
+                <p className="text-sm text-slate-700 text-center">
+                  <span className="font-bold text-brand-700">Tip:</span> Students can access this assignment anytime using the link above
+                </p>
+              </div>
+
+              {/* Done Button */}
+              <button
+                onClick={() => {
+                  setShowLinkModal(false);
+                  setGeneratedLink("");
+                }}
+                className="w-full bg-brand-600 hover:bg-brand-700 text-white py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-xl"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        .animate-slideUp {
+          animation: slideUp 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
 
 export default TeacherDashboard;
+

@@ -1,16 +1,16 @@
-// bkp1/backend/src/controllers/quizSessionController.js
-
 import Session from '../models/quizSessionModel.js';
-import ExcelJS from 'exceljs'; // Ensure: npm install exceljs
+import ExcelJS from 'exceljs';
 
 /**
- * @desc    Create or store a quiz session
- * @route   POST /api/quiz-session
- * @access  Student / Public
+ * ======================================================
+ * 1. Create or Store a Quiz Session
+ * POST /api/quiz-session
+ * Access: Student / Public
+ * ======================================================
  */
 export const createQuizSession = async (req, res) => {
   try {
-    const { email, domainId, sessionId, payload } = req.body;
+    const { email, userId, domainId, sessionId, payload, attemptedAt } = req.body;
 
     if (!sessionId || !payload) {
       return res.status(400).json({
@@ -21,17 +21,18 @@ export const createQuizSession = async (req, res) => {
 
     const newSession = new Session({
       email: email || null,
+      userId: userId || null, // optional (guest support)
       domainId,
       sessionId,
       payload,
-      attemptedAt: new Date(),
+      attemptedAt: attemptedAt ? new Date(attemptedAt) : new Date(),
     });
 
-    await newSession.save();
+    const saved = await newSession.save();
 
     return res.status(201).json({
       status: 'success',
-      data: newSession,
+      data: saved,
     });
   } catch (error) {
     console.error('Create Quiz Session Error:', error);
@@ -43,9 +44,11 @@ export const createQuizSession = async (req, res) => {
 };
 
 /**
- * @desc    Fetch individual performance for a teacher's assignment
- * @route   GET /api/quiz-session/performance/:domainId
- * @access  Teacher
+ * ======================================================
+ * 2. Get Assignment Performance (All Students)
+ * GET /api/quiz-session/performance/:domainId
+ * Access: Teacher
+ * ======================================================
  */
 export const getAssignmentPerformance = async (req, res) => {
   try {
@@ -58,14 +61,14 @@ export const getAssignmentPerformance = async (req, res) => {
       });
     }
 
-    const results = await Session.find({ domainId }).sort({
-      attemptedAt: -1,
-    });
+    const sessions = await Session.find({ domainId })
+      .populate('userId', 'name email')
+      .sort({ attemptedAt: -1 });
 
     return res.status(200).json({
       status: 'success',
-      count: results.length,
-      data: results,
+      count: sessions.length,
+      data: sessions,
     });
   } catch (error) {
     console.error('Get Assignment Performance Error:', error);
@@ -77,9 +80,51 @@ export const getAssignmentPerformance = async (req, res) => {
 };
 
 /**
- * @desc    Export assignment performance to Excel
- * @route   GET /api/quiz-session/export/:domainId
- * @access  Teacher
+ * ======================================================
+ * 3. Get Student History (Performance Trend)
+ * GET /api/quiz-session/student/:studentId
+ * Access: Student / Teacher
+ * ======================================================
+ */
+export const getStudentHistory = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    if (!studentId) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'studentId is required',
+      });
+    }
+
+    const sessions = await Session.find({ userId: studentId })
+      .sort({ attemptedAt: 1 });
+
+    const chartData = sessions.map((session) => ({
+      date: new Date(session.attemptedAt).toLocaleDateString(),
+      score: session.payload?.score ?? 0,
+      status: session.payload?.status ?? 'Completed',
+    }));
+
+    return res.status(200).json({
+      status: 'success',
+      data: chartData,
+    });
+  } catch (error) {
+    console.error('Get Student History Error:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * ======================================================
+ * 4. Export Assignment Performance to Excel
+ * GET /api/quiz-session/export/:domainId
+ * Access: Teacher
+ * ======================================================
  */
 export const exportAssignmentToExcel = async (req, res) => {
   try {
@@ -92,39 +137,39 @@ export const exportAssignmentToExcel = async (req, res) => {
       });
     }
 
-    const results = await Session.find({ domainId });
+    const results = await Session.find({ domainId })
+      .populate('userId', 'name email');
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Student Performance');
 
-    // Define Excel columns
     worksheet.columns = [
+      { header: 'Student Name', key: 'name', width: 25 },
       { header: 'Student Email', key: 'email', width: 30 },
       { header: 'Score (%)', key: 'score', width: 12 },
       { header: 'Status', key: 'status', width: 15 },
-      { header: 'Date Attempted', key: 'date', width: 25 },
+      { header: 'Attempted At', key: 'date', width: 25 },
     ];
 
-    // Fill rows
     results.forEach((session) => {
       worksheet.addRow({
-        email: session.email || 'Anonymous',
+        name: session.userId?.name || 'Guest',
+        email: session.userId?.email || session.email || 'Anonymous',
         score: session.payload?.score ?? 0,
         status: session.payload?.status ?? 'Completed',
         date: session.attemptedAt
-          ? session.attemptedAt.toISOString()
+          ? session.attemptedAt.toLocaleString()
           : 'N/A',
       });
     });
 
-    // Send Excel file
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=Performance_${domainId}.xlsx`
+      `attachment; filename=Assignment_${domainId}_Performance.xlsx`
     );
 
     await workbook.xlsx.write(res);
