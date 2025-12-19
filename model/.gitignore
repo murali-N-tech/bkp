@@ -1,25 +1,12 @@
-# Python
+# HuggingFace / ML cache
+model/.hf_cache/
+**/.hf_cache/
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# Python cache
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# Virtual environments
-venv/
-env/
-ENV/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Environment variables
+*.pyc
 .env
-.env.local
-
-# OS
-.DS_Store
-Thumbs.db
